@@ -6,10 +6,12 @@ import type { GeolocationStatus, LocationOption, TemperatureUnit } from '../type
 const APP_STORAGE_KEY = 'weatherbox-app-state';
 
 interface AppState {
+  hasHydrated: boolean;
   unit: TemperatureUnit;
   currentLocation: LocationOption | null;
   savedLocations: LocationOption[];
   geolocationStatus: GeolocationStatus;
+  setHasHydrated: (hasHydrated: boolean) => void;
   setUnit: (unit: TemperatureUnit) => void;
   setCurrentLocation: (location: LocationOption | null) => void;
   saveLocation: (location: LocationOption) => void;
@@ -18,6 +20,7 @@ interface AppState {
 }
 
 const baseState = {
+  hasHydrated: false,
   unit: 'celsius' as TemperatureUnit,
   currentLocation: null as LocationOption | null,
   savedLocations: [] as LocationOption[],
@@ -33,6 +36,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       ...baseState,
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setUnit: (unit) => set({ unit }),
       setCurrentLocation: (location) => set({ currentLocation: location }),
       saveLocation: (location) =>
@@ -63,6 +67,13 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: APP_STORAGE_KEY,
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.error('Failed to rehydrate app state.', error);
+        }
+
+        state?.setHasHydrated(true);
+      },
       partialize: (state) => ({
         unit: state.unit,
         currentLocation: state.currentLocation,

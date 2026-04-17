@@ -141,6 +141,52 @@ describe('Location search integration', () => {
     expect(consoleError).toHaveBeenCalledWith('Failed to access geolocation.', deniedPositionError);
   });
 
+  it('clears the geolocation fallback error after switching to a saved city', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const deniedPositionError = {
+      code: 1,
+      message: 'Permission denied',
+    } as GeolocationPositionError;
+    const getCurrentPosition = vi.fn(
+      (
+        _success: PositionCallback,
+        error: PositionErrorCallback | null | undefined,
+      ) => {
+        error?.(deniedPositionError);
+      },
+    );
+
+    Object.defineProperty(window.navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition,
+      },
+    });
+
+    useAppStore.setState({
+      currentLocation: paris,
+      geolocationStatus: 'idle',
+      savedLocations: [paris, berlin],
+      unit: 'celsius',
+    });
+
+    const user = userEvent.setup();
+
+    renderWithProviders(<App />);
+
+    await user.click(screen.getByRole('button', { name: /use my location/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/location access was denied/i);
+
+    await user.click(screen.getByRole('button', { name: /switch to berlin/i }));
+
+    expect(screen.getByRole('heading', { name: 'Berlin' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText(/location access was denied/i)).not.toBeInTheDocument();
+    });
+    expect(consoleError).toHaveBeenCalledWith('Failed to access geolocation.', deniedPositionError);
+  });
+
   it('surfaces a search error when location matches cannot be loaded', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(global, 'fetch').mockResolvedValue({

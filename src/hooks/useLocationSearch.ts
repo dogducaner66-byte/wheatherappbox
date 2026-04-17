@@ -2,22 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 
+import { searchLocations } from '../api/openmeteo';
 import { useAppStore } from '../store/appStore';
 import type { LocationOption } from '../types/location';
-
-interface GeocodingApiResult {
-  id?: number;
-  name: string;
-  country?: string;
-  admin1?: string;
-  latitude: number;
-  longitude: number;
-  timezone?: string;
-}
-
-interface GeocodingApiResponse {
-  results?: GeocodingApiResult[];
-}
 
 const useDebouncedValue = (value: string, delayMs: number): string => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -33,24 +20,6 @@ const useDebouncedValue = (value: string, delayMs: number): string => {
   }, [delayMs, value]);
 
   return debouncedValue;
-};
-
-const createLocationLabel = (result: GeocodingApiResult): string => {
-  return [result.name, result.admin1, result.country].filter(Boolean).join(', ');
-};
-
-const normalizeLocations = (results: GeocodingApiResult[]): LocationOption[] => {
-  return results.map((result) => ({
-    id: String(result.id ?? `${result.name}-${result.latitude}-${result.longitude}`),
-    name: result.name,
-    label: createLocationLabel(result),
-    country: result.country,
-    region: result.admin1,
-    latitude: result.latitude,
-    longitude: result.longitude,
-    timezone: result.timezone,
-    source: 'search',
-  }));
 };
 
 export const useLocationSearch = (debounceMs = 300) => {
@@ -72,27 +41,7 @@ export const useLocationSearch = (debounceMs = 300) => {
   const searchQuery = useQuery({
     queryKey: ['location-search', debouncedQuery],
     enabled: debouncedQuery.length >= 2 && debouncedQuery !== selectedLabel,
-    queryFn: async () => {
-      try {
-        const requestUrl = new URL('https://geocoding-api.open-meteo.com/v1/search');
-        requestUrl.searchParams.set('name', debouncedQuery);
-        requestUrl.searchParams.set('count', '5');
-        requestUrl.searchParams.set('language', 'en');
-        requestUrl.searchParams.set('format', 'json');
-
-        const response = await fetch(requestUrl);
-
-        if (!response.ok) {
-          throw new Error(`Geocoding request failed with status ${response.status}`);
-        }
-
-        const payload = (await response.json()) as GeocodingApiResponse;
-        return normalizeLocations(payload.results ?? []);
-      } catch (error) {
-        console.error('Failed to fetch geocoding results.', error);
-        throw error;
-      }
-    },
+    queryFn: () => searchLocations(debouncedQuery),
   });
 
   const results = useMemo(() => searchQuery.data ?? [], [searchQuery.data]);

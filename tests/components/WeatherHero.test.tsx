@@ -69,4 +69,30 @@ describe('app hero shell', () => {
     expect(screen.getByRole('button', { name: 'Saved' })).toBeDisabled();
     expect(screen.getByText('1')).toBeInTheDocument();
   });
+
+  it('switches units and updates the integration summary cards', async () => {
+    useAppStore.setState({
+      currentLocation: {
+        ...paris,
+        source: 'saved',
+      },
+      geolocationStatus: 'granted',
+      savedLocations: [paris],
+      unit: 'celsius',
+    });
+
+    const user = userEvent.setup();
+
+    renderApp();
+
+    expect(screen.getByText('C')).toBeInTheDocument();
+    expect(screen.getByText('saved')).toBeInTheDocument();
+    expect(screen.getByText(/metric forecast cards will render by default/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Imperial' }));
+
+    expect(useAppStore.getState().unit).toBe('fahrenheit');
+    expect(screen.getByText('F')).toBeInTheDocument();
+    expect(screen.getByText(/imperial forecast cards will render by default/i)).toBeInTheDocument();
+  });
 });

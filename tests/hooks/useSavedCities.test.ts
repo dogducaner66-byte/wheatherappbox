@@ -92,4 +92,31 @@ describe('useSavedCities', () => {
       source: 'saved',
     });
   });
+
+  it('deduplicates the active location when saving an existing city again', () => {
+    useAppStore.setState({
+      currentLocation: {
+        ...berlin,
+        source: 'search',
+      },
+      geolocationStatus: 'idle',
+      savedLocations: [berlin, paris],
+      unit: 'celsius',
+    });
+
+    const { result } = renderHook(() => useSavedCities());
+
+    act(() => {
+      result.current.saveCurrentLocation();
+    });
+
+    expect(useAppStore.getState().savedLocations).toEqual([
+      {
+        ...berlin,
+        source: 'saved',
+      },
+      paris,
+    ]);
+    expect(result.current.isCurrentLocationSaved).toBe(true);
+  });
 });

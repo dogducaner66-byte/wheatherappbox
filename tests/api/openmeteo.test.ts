@@ -57,4 +57,23 @@ describe('searchLocations', () => {
     await expect(searchLocations('Paris')).rejects.toThrow('Geocoding request failed with status 503');
     expect(consoleError).toHaveBeenCalledWith('Failed to fetch geocoding results.', expect.any(Error));
   });
+
+  it('returns an empty result set when the API omits matches', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(searchLocations('Unknown')).resolves.toEqual([]);
+  });
+
+  it('logs and rethrows network errors from fetch itself', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const networkError = new Error('network down');
+
+    vi.spyOn(global, 'fetch').mockRejectedValue(networkError);
+
+    await expect(searchLocations('Paris')).rejects.toThrow('network down');
+    expect(consoleError).toHaveBeenCalledWith('Failed to fetch geocoding results.', networkError);
+  });
 });

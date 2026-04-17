@@ -20,6 +20,31 @@ describe('location formatters', () => {
     ).toBe('Reykjavik, Iceland');
   });
 
+  it('keeps explicit ids and omits undefined region and country fields', () => {
+    expect(
+      normalizeLocationSearchResults([
+        {
+          id: 0,
+          name: 'Nuuk',
+          latitude: 64.1835,
+          longitude: -51.7216,
+        },
+      ]),
+    ).toEqual([
+      {
+        id: '0',
+        name: 'Nuuk',
+        label: 'Nuuk',
+        country: undefined,
+        region: undefined,
+        latitude: 64.1835,
+        longitude: -51.7216,
+        timezone: undefined,
+        source: 'search',
+      },
+    ]);
+  });
+
   it('normalizes geocoding results and falls back to a deterministic id when the API omits one', () => {
     expect(
       normalizeLocationSearchResults([

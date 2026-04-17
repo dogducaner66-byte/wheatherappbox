@@ -71,4 +71,41 @@ describe('location formatters', () => {
       },
     ]);
   });
+
+  it('drops malformed geocoding rows instead of emitting partially invalid options', () => {
+    expect(
+      normalizeLocationSearchResults([
+        {
+          id: 10,
+          name: '  ',
+          latitude: 48.85,
+          longitude: 2.35,
+        },
+        {
+          id: 11,
+          name: 'Paris',
+          latitude: undefined,
+          longitude: 2.35,
+        },
+        {
+          id: 12,
+          name: 'Berlin',
+          latitude: 52.52,
+          longitude: 13.405,
+        },
+      ]),
+    ).toEqual([
+      {
+        id: '12',
+        name: 'Berlin',
+        label: 'Berlin',
+        country: undefined,
+        region: undefined,
+        latitude: 52.52,
+        longitude: 13.405,
+        timezone: undefined,
+        source: 'search',
+      },
+    ]);
+  });
 });

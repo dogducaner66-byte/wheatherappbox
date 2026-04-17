@@ -41,7 +41,7 @@ export const useLocationSearch = (debounceMs = 300) => {
   const searchQuery = useQuery({
     queryKey: ['location-search', debouncedQuery],
     enabled: debouncedQuery.length >= 2 && debouncedQuery !== selectedLabel,
-    queryFn: () => searchLocations(debouncedQuery),
+    queryFn: ({ signal }) => searchLocations(debouncedQuery, { signal }),
   });
 
   const results = useMemo(() => searchQuery.data ?? [], [searchQuery.data]);

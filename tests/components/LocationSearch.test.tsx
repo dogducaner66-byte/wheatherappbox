@@ -80,7 +80,7 @@ describe('Location search integration', () => {
 
     expect(combobox).toHaveAttribute('aria-expanded', 'true');
     expect(combobox).toHaveAttribute('aria-controls', listbox.id);
-    expect(fetchMock).toHaveBeenCalledWith(expect.any(URL));
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(URL), expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(option).toHaveAttribute('aria-selected', 'true');
 
     await user.keyboard('{ArrowDown}');

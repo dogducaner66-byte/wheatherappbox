@@ -75,11 +75,22 @@ describe('Location search integration', () => {
     const combobox = screen.getByRole('combobox', { name: /search for a city/i });
     await user.type(combobox, 'Par');
 
+    const listbox = await screen.findByRole('listbox', { name: /location suggestions/i });
     const option = await screen.findByRole('option', { name: /paris/i });
-    expect(combobox).toHaveAttribute('aria-expanded', 'true');
-    expect(fetchMock).toHaveBeenCalledWith(expect.any(URL));
 
-    await user.click(option);
+    expect(combobox).toHaveAttribute('aria-expanded', 'true');
+    expect(combobox).toHaveAttribute('aria-controls', listbox.id);
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(URL));
+    expect(option).toHaveAttribute('aria-selected', 'true');
+
+    await user.keyboard('{ArrowDown}');
+
+    const activeOptionId = combobox.getAttribute('aria-activedescendant');
+    expect(activeOptionId).toBeTruthy();
+    expect(option.id).toBe(activeOptionId);
+    expect(option).toHaveAttribute('aria-selected', 'true');
+
+    await user.keyboard('{Enter}');
 
     expect(screen.getByRole('heading', { name: 'Paris' })).toBeInTheDocument();
 
@@ -94,6 +105,7 @@ describe('Location search integration', () => {
   });
 
   it('falls back to the search box when geolocation is denied', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const deniedPositionError = {
       code: 1,
       message: 'Permission denied',
@@ -126,6 +138,24 @@ describe('Location search integration', () => {
     await waitFor(() => {
       expect(combobox).toHaveFocus();
     });
+    expect(consoleError).toHaveBeenCalledWith('Failed to access geolocation.', deniedPositionError);
+  });
+
+  it('surfaces a search error when location matches cannot be loaded', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 500,
+    } as Response);
+
+    const user = userEvent.setup();
+
+    renderWithProviders(<LocationSearch debounceMs={0} />);
+
+    await user.type(screen.getByRole('combobox', { name: /search for a city/i }), 'Par');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not load location matches/i);
+    expect(consoleError).toHaveBeenCalledWith('Failed to fetch geocoding results.', expect.any(Error));
   });
 
   it('switches to saved cities and deterministically falls forward when the active city is removed', async () => {

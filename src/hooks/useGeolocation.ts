@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useAppStore } from '../store/appStore';
 
@@ -14,6 +14,12 @@ export const useGeolocation = () => {
   const setCurrentLocation = useAppStore((state) => state.setCurrentLocation);
   const setGeolocationStatus = useAppStore((state) => state.setGeolocationStatus);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentLocation) {
+      setErrorMessage(null);
+    }
+  }, [currentLocation]);
 
   const requestCurrentLocation = useCallback(async (): Promise<boolean> => {
     if (!navigator.geolocation) {

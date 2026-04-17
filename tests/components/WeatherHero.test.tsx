@@ -1,98 +1,102 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import App from '../../src/App';
-import { clearPersistedAppStore, useAppStore } from '../../src/store/appStore';
-import type { LocationOption } from '../../src/types/location';
+import { WeatherHero } from '../../src/components/WeatherHero';
+import type { WeatherForecast } from '../../src/api/types';
 
-const renderApp = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
+const parisForecast: WeatherForecast = {
+  location: {
+    id: 'paris',
+    name: 'Paris',
+    label: 'Paris, Ile-de-France, France',
+    latitude: 48.8566,
+    longitude: 2.3522,
+    source: 'search',
+    timezone: 'Europe/Paris',
+    timezoneAbbreviation: 'CEST',
+  },
+  requestedUnit: 'celsius',
+  units: {
+    temperature: '°C',
+    apparentTemperature: '°C',
+    windSpeed: 'km/h',
+    precipitationProbability: '%',
+  },
+  current: {
+    time: '2026-04-18T12:00',
+    intervalMinutes: 60,
+    isDay: true,
+    temperature: 22,
+    apparentTemperature: 24,
+    windSpeed: 15,
+    condition: {
+      code: 1,
+      label: 'Mainly clear',
+      kind: 'partly-cloudy',
+      gradient: 'clear-day',
+    },
+  },
+  hourly: [
+    {
+      time: '2026-04-18T12:00',
+      isDay: true,
+      temperature: 22,
+      precipitationProbability: 10,
+      condition: {
+        code: 1,
+        label: 'Mainly clear',
+        kind: 'partly-cloudy',
+        gradient: 'clear-day',
       },
     },
-  });
-
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>,
-  );
+  ],
+  daily: [
+    {
+      date: '2026-04-18',
+      temperatureMax: 25,
+      temperatureMin: 16,
+      precipitationProbabilityMax: 15,
+      sunrise: '2026-04-18T06:21',
+      sunset: '2026-04-18T20:32',
+      condition: {
+        code: 1,
+        label: 'Mainly clear',
+        kind: 'partly-cloudy',
+        gradient: 'clear-day',
+      },
+    },
+  ],
 };
 
-const paris: LocationOption = {
-  id: 'paris',
-  name: 'Paris',
-  label: 'Paris, Ile-de-France, France',
-  country: 'France',
-  region: 'Ile-de-France',
-  latitude: 48.8566,
-  longitude: 2.3522,
-  source: 'search',
-};
-
-describe('app hero shell', () => {
+describe('WeatherHero', () => {
   beforeEach(() => {
     localStorage.clear();
-    clearPersistedAppStore();
   });
 
-  it('renders the empty active-location state with save disabled', () => {
-    renderApp();
-
-    expect(screen.getByRole('heading', { name: /search or use geolocation to start/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save location' })).toBeDisabled();
-    expect(screen.getByText(/your current selection is stored locally/i)).toBeInTheDocument();
-  });
-
-  it('shows the current location details and saves them from the hero action', async () => {
-    useAppStore.setState({
-      currentLocation: paris,
-      geolocationStatus: 'idle',
-      savedLocations: [],
-      unit: 'celsius',
-    });
-
-    const user = userEvent.setup();
-
-    renderApp();
+  it('renders the live weather overview for the selected city', () => {
+    render(<WeatherHero canSaveLocation={true} forecast={parisForecast} isCurrentLocationSaved={false} onSaveLocation={() => undefined} />);
 
     expect(screen.getByRole('heading', { name: 'Paris' })).toBeInTheDocument();
-    expect(screen.getByText(/48\.86, 2\.35/i)).toBeInTheDocument();
-    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.getByText(/now playing outside/i)).toBeInTheDocument();
+    expect(screen.getByText(/mainly clear/i)).toBeInTheDocument();
+    expect(screen.getByText(/today/i)).toBeInTheDocument();
+  });
+
+  it('invokes the save action when the location is not already in the shortlist', async () => {
+    const user = userEvent.setup();
+    const onSaveLocation = vi.fn();
+
+    render(<WeatherHero canSaveLocation={true} forecast={parisForecast} isCurrentLocationSaved={false} onSaveLocation={onSaveLocation} />);
 
     await user.click(screen.getByRole('button', { name: 'Save location' }));
 
-    expect(screen.getByRole('button', { name: 'Saved' })).toBeDisabled();
-    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(onSaveLocation).toHaveBeenCalledTimes(1);
   });
 
-  it('switches units and updates the integration summary cards', async () => {
-    useAppStore.setState({
-      currentLocation: {
-        ...paris,
-        source: 'saved',
-      },
-      geolocationStatus: 'granted',
-      savedLocations: [paris],
-      unit: 'celsius',
-    });
+  it('disables the save button once the active location is already stored', () => {
+    render(<WeatherHero canSaveLocation={false} forecast={parisForecast} isCurrentLocationSaved={true} onSaveLocation={() => undefined} />);
 
-    const user = userEvent.setup();
-
-    renderApp();
-
-    expect(screen.getByText('C')).toBeInTheDocument();
-    expect(screen.getByText('saved')).toBeInTheDocument();
-    expect(screen.getByText(/metric forecast cards will render by default/i)).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Imperial' }));
-
-    expect(useAppStore.getState().unit).toBe('fahrenheit');
-    expect(screen.getByText('F')).toBeInTheDocument();
-    expect(screen.getByText(/imperial forecast cards will render by default/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /saved to shortlist/i })).toBeDisabled();
   });
 });

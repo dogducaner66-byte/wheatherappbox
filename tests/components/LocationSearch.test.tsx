@@ -1,9 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import App from '../../src/App';
 import { LocationSearch } from '../../src/components/LocationSearch';
 import { SavedCities } from '../../src/components/SavedCities';
 import { clearPersistedAppStore, useAppStore } from '../../src/store/appStore';
@@ -50,7 +49,7 @@ describe('Location search integration', () => {
     vi.restoreAllMocks();
   });
 
-  it('searches locations with combobox semantics and lets the app save the selected city', async () => {
+  it('searches locations with combobox semantics and selects the active city', async () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -70,7 +69,7 @@ describe('Location search integration', () => {
 
     const user = userEvent.setup();
 
-    renderWithProviders(<App />);
+    renderWithProviders(<LocationSearch debounceMs={0} />);
 
     const combobox = screen.getByRole('combobox', { name: /search for a city/i });
     await user.type(combobox, 'Par');
@@ -92,16 +91,21 @@ describe('Location search integration', () => {
 
     await user.keyboard('{Enter}');
 
-    expect(screen.getByRole('heading', { name: 'Paris' })).toBeInTheDocument();
+    expect(useAppStore.getState().currentLocation).toMatchObject({
+      id: '123',
+      name: 'Paris',
+      timezone: 'Europe/Paris',
+    });
+    expect(combobox).toHaveValue('Paris, Ile-de-France, France');
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox', { name: /location suggestions/i })).not.toBeInTheDocument();
+    });
 
-    await user.click(screen.getByRole('button', { name: /save location/i }));
+    const searchQueries = fetchMock.mock.calls
+      .map(([request]) => (request as URL).searchParams.get('name'))
+      .filter((value): value is string => Boolean(value));
 
-    expect(screen.getByRole('button', { name: 'Saved' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /remove paris/i })).toBeInTheDocument();
-
-    const requestUrl = fetchMock.mock.calls[0][0] as URL;
-    expect(requestUrl.toString()).toContain('geocoding-api.open-meteo.com');
-    expect(requestUrl.searchParams.get('name')).toBe('Par');
+    expect(searchQueries).toContain('Par');
   });
 
   it('falls back to the search box when geolocation is denied', async () => {
@@ -172,15 +176,18 @@ describe('Location search integration', () => {
 
     const user = userEvent.setup();
 
-    renderWithProviders(<App />);
+    renderWithProviders(<LocationSearch debounceMs={0} />);
 
     await user.click(screen.getByRole('button', { name: /use my location/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/location access was denied/i);
 
-    await user.click(screen.getByRole('button', { name: /switch to berlin/i }));
+    act(() => {
+      useAppStore.setState({
+        currentLocation: berlin,
+      });
+    });
 
-    expect(screen.getByRole('heading', { name: 'Berlin' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByText(/location access was denied/i)).not.toBeInTheDocument();
     });

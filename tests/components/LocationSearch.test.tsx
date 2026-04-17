@@ -204,6 +204,34 @@ describe('Location search integration', () => {
     expect(consoleError).toHaveBeenCalledWith('Failed to fetch geocoding results.', expect.any(Error));
   });
 
+  it('announces when no matching cities are found and closes the listbox on escape', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [],
+      }),
+    } as Response);
+
+    const user = userEvent.setup();
+
+    renderWithProviders(<LocationSearch debounceMs={0} />);
+
+    const combobox = screen.getByRole('combobox', { name: /search for a city/i });
+
+    await user.type(combobox, 'Os');
+
+    expect(await screen.findByText(/no matching cities found/i)).toBeInTheDocument();
+    expect(combobox).toHaveAttribute('aria-expanded', 'true');
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox', { name: /location suggestions/i })).not.toBeInTheDocument();
+    });
+    expect(combobox).toHaveAttribute('aria-expanded', 'false');
+    expect(combobox).not.toHaveAttribute('aria-activedescendant');
+  });
+
   it('switches to saved cities and deterministically falls forward when the active city is removed', async () => {
     useAppStore.setState({
       currentLocation: paris,

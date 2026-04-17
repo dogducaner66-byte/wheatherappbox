@@ -30,7 +30,7 @@ describe('App shell', () => {
   it('renders the premium shell with unit controls and saved cities section', () => {
     renderApp();
 
-    expect(screen.getByRole('heading', { name: /premium weather search and location controls/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /a premium live forecast canvas with native-weather polish/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Metric' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Imperial' })).toBeInTheDocument();
     expect(screen.getByText(/saved cities/i)).toBeInTheDocument();
